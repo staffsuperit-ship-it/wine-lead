@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
-import { Plus, Trash2, LogOut, FileSpreadsheet, Wine, Share2, Copy, Check, Users, MessageCircle, Save, Archive, Settings } from 'lucide-react';
+import { Plus, Trash2, LogOut, FileSpreadsheet, Wine, Share2, Copy, Check, Users, MessageCircle, Save, Archive, Settings, ExternalLink } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
 export default function AdminDashboard() {
@@ -24,7 +24,6 @@ export default function AdminDashboard() {
     if (!user) router.push('/login');
     else { 
       setUserId(user.id); 
-      // Assicuriamoci che esista la cantina nel DB
       await supabase.from('wineries').upsert({ id: user.id });
       fetchData(user.id); 
     }
@@ -32,37 +31,18 @@ export default function AdminDashboard() {
 
   async function fetchData(uid: string) {
     setLoading(true);
-    
-    // 1. Dati Cantina
     const { data: winery } = await supabase.from('wineries').select('*').eq('id', uid).maybeSingle();
     if (winery) setWineryName(winery.name || '');
-
-    // 2. Fiera Attiva
     const { data: fairData } = await supabase.from('fairs').select('id, fair_name').eq('winery_id', uid).maybeSingle();
     let currentFairId = null;
     if (fairData) {
       setFairName(fairData.fair_name || '');
       currentFairId = fairData.id;
     }
-
-    // 3. Vini
     const { data: winesData } = await supabase.from('wines').select('*').eq('winery_id', uid).order('wine_name', { ascending: true });
     if (winesData) setWines(winesData);
-
-    // 4. Leads (Contatti) con i dettagli dei vini assaggiati
     if (currentFairId) {
-      const { data: leadsData, error } = await supabase
-        .from('leads')
-        .select(`
-          *,
-          tastings (
-            note,
-            wines (wine_name)
-          )
-        `)
-        .eq('fair_id', currentFairId)
-        .order('created_at', { ascending: false });
-      
+      const { data: leadsData } = await supabase.from('leads').select('*, tastings (note, wines (wine_name))').eq('fair_id', currentFairId).order('created_at', { ascending: false });
       if (leadsData) setLeads(leadsData);
     }
     setLoading(false);
@@ -99,18 +79,9 @@ export default function AdminDashboard() {
     }
   };
 
-  // WHATSAPP GENERATOR - BLINDATO
   const getWaLink = (lead: any) => {
-    // 1. Pulisce il numero (solo numeri)
     const phone = lead.phone ? lead.phone.replace(/\D/g, '') : '';
-    // 2. Prepara le variabili con dei "salvagente" se sono vuote
-    const nomeCliente = lead.first_name || 'Amico';
-    const nomeDellaCantina = wineryName || 'nostra cantina';
-    const nomeDellaFiera = fairName || 'fiera';
-    
-    // 3. Costruisce il messaggio
-    const messaggio = `Ciao ${nomeCliente}! Sono della cantina ${nomeDellaCantina}. Grazie per averci visitato al ${nomeDellaFiera}. È stato un piacere conoscerti!`;
-    
+    const messaggio = `Ciao ${lead.first_name}! Sono della cantina ${wineryName}. Grazie per averci visitato al ${fairName}. È stato un piacere conoscerti!`;
     return `https://wa.me/${phone}?text=${encodeURIComponent(messaggio)}`;
   };
 
@@ -120,67 +91,70 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-800 font-sans pb-24">
+      {/* NAVBAR */}
       <nav className="bg-white border-b p-4 flex justify-between items-center sticky top-0 z-50 shadow-sm">
-        <div className="flex items-center gap-2 text-red-700"><Wine size={24}/><h1 className="font-black text-xl tracking-tighter italic uppercase">Wine Link</h1></div>
-        <button onClick={() => supabase.auth.signOut().then(() => router.push('/login'))} className="bg-slate-50 p-2 rounded-xl text-slate-400"><LogOut size={18}/></button>
+        <div className="flex items-center gap-2 text-red-700">
+            <Wine size={24}/>
+            <h1 className="font-black text-xl tracking-tighter italic uppercase leading-none">Wine Link</h1>
+        </div>
+        <div className="flex gap-2">
+            {/* TASTO PER USCIRE E VEDERE IL FORM PUBBLICO */}
+            <a href={publicLink} target="_blank" className="p-2 bg-slate-50 rounded-xl text-slate-400 hover:text-red-600 border border-slate-100 transition-colors">
+                <ExternalLink size={20}/>
+            </a>
+            <button onClick={() => supabase.auth.signOut().then(() => router.push('/login'))} className="bg-slate-50 p-2 rounded-xl text-slate-400 border border-slate-100">
+                <LogOut size={20}/>
+            </button>
+        </div>
       </nav>
 
-      {/* Menu Tabs mobile-friendly */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-md text-white px-2 py-2 rounded-3xl flex gap-1 shadow-2xl z-50 border border-white/10">
-        <button onClick={() => setActiveTab('leads')} className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-xs font-bold transition-all ${activeTab === 'leads' ? 'bg-red-600' : 'opacity-60'}`}><Users size={16}/> LEAD</button>
-        <button onClick={() => setActiveTab('config')} className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-xs font-bold transition-all ${activeTab === 'config' ? 'bg-red-600' : 'opacity-60'}`}><Settings size={16}/> STAND</button>
-        <button onClick={() => setActiveTab('archive')} className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-xs font-bold transition-all ${activeTab === 'archive' ? 'bg-red-600' : 'opacity-60'}`}><Archive size={16}/> ARCHIVIO</button>
+      {/* TASTI DI NAVIGAZIONE IN BASSO (MOLTO EVIDENTI) */}
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-white border border-slate-200 p-2 rounded-[2.5rem] flex gap-2 shadow-[0_20px_50px_rgba(0,0,0,0.1)] z-50 w-[90%] max-w-sm">
+        <button onClick={() => setActiveTab('leads')} className={`flex-1 flex flex-col items-center justify-center py-3 rounded-[2rem] transition-all ${activeTab === 'leads' ? 'bg-red-600 text-white shadow-lg' : 'text-slate-400'}`}>
+            <Users size={18}/>
+            <span className="text-[9px] font-bold uppercase mt-1">Lead</span>
+        </button>
+        <button onClick={() => setActiveTab('config')} className={`flex-1 flex flex-col items-center justify-center py-3 rounded-[2rem] transition-all ${activeTab === 'config' ? 'bg-red-600 text-white shadow-lg' : 'text-slate-400'}`}>
+            <Settings size={18}/>
+            <span className="text-[9px] font-bold uppercase mt-1">Stand</span>
+        </button>
+        <button onClick={() => setActiveTab('archive')} className={`flex-1 flex flex-col items-center justify-center py-3 rounded-[2rem] transition-all ${activeTab === 'archive' ? 'bg-red-600 text-white shadow-lg' : 'text-slate-400'}`}>
+            <Archive size={18}/>
+            <span className="text-[9px] font-bold uppercase mt-1">Archivio</span>
+        </button>
       </div>
 
       <main className="p-4 max-w-2xl mx-auto mt-4 space-y-6">
 
         {activeTab === 'leads' && (
           <div className="space-y-4">
-            <h2 className="text-xl font-black italic px-2">NUOVI CONTATTI ({leads.filter(l => !l.is_archived).length})</h2>
-            
+            <h2 className="text-xl font-black italic px-2">CONTATTI IN TEMPO REALE</h2>
             {leads.filter(l => !l.is_archived).length === 0 ? (
-              <p className="text-center py-20 text-slate-400 bg-white rounded-3xl border-2 border-dashed">Nessun contatto registrato</p>
+              <div className="text-center py-20 bg-white rounded-[2rem] border-2 border-dashed border-slate-200 text-slate-400 italic">In attesa di degustazioni...</div>
             ) : (
               leads.filter(l => !l.is_archived).map(lead => (
-                <div key={lead.id} className={`bg-white p-6 rounded-[2.5rem] shadow-sm border-2 transition-all ${lead.is_contacted ? 'border-green-100' : 'border-slate-100'}`}>
+                <div key={lead.id} className={`bg-white p-6 rounded-[2.5rem] shadow-sm border-2 transition-all ${lead.is_contacted ? 'border-green-100 shadow-none' : 'border-slate-100 shadow-md'}`}>
                   <div className="flex justify-between items-start mb-4">
                     <div>
-                      <h3 className="font-bold text-xl leading-none mb-2">{lead.first_name} {lead.last_name}</h3>
-                      <div className="flex gap-2">
-                        <span className="text-[9px] font-black uppercase tracking-widest text-red-600 bg-red-50 px-2 py-0.5 rounded-full">{lead.role}</span>
-                      </div>
+                      <h3 className="font-bold text-xl leading-none mb-1 uppercase tracking-tighter">{lead.first_name} {lead.last_name}</h3>
+                      <span className="text-[9px] font-black uppercase tracking-widest text-red-600 bg-red-50 px-2 py-0.5 rounded-full">{lead.role}</span>
                     </div>
                     <div className="flex gap-2">
                       <button onClick={() => archiveLead(lead.id, true)} className="p-3 bg-slate-50 rounded-2xl text-slate-300 hover:text-amber-600 transition-colors"><Archive size={18}/></button>
-                      <a 
-                        href={getWaLink(lead)} 
-                        onClick={() => markAsContacted(lead.id)}
-                        target="_blank" 
-                        className={`flex items-center gap-2 px-5 py-3 rounded-2xl font-bold text-xs shadow-md transition-all active:scale-95 ${lead.is_contacted ? 'bg-green-100 text-green-700 shadow-none' : 'bg-green-500 text-white hover:bg-green-600'}`}
-                      >
-                        <MessageCircle size={18}/> {lead.is_contacted ? 'INVIATO' : 'SALUTA'}
+                      <a href={getWaLink(lead)} onClick={() => markAsContacted(lead.id)} target="_blank" className={`flex items-center gap-2 px-5 py-3 rounded-2xl font-bold text-xs transition-all active:scale-95 ${lead.is_contacted ? 'bg-green-100 text-green-700' : 'bg-green-500 text-white shadow-lg shadow-green-100'}`}>
+                        <MessageCircle size={18}/> {lead.is_contacted ? 'CONTATTATO' : 'SALUTA'}
                       </a>
                     </div>
                   </div>
                   
-                  {/* DEGUSTAZIONE FIXATA */}
                   <div className="bg-slate-50 rounded-[1.5rem] p-4 border border-slate-100 space-y-3">
-                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Vini assaggiati:</p>
-                    {lead.tastings && lead.tastings.length > 0 ? (
-                      lead.tastings.map((t: any, idx: number) => (
-                        <div key={idx} className="border-b border-slate-200/50 pb-2 last:border-0 last:pb-0">
-                          <p className="text-sm font-bold text-slate-800 italic">🍷 {t.wines?.wine_name}</p>
-                          {t.note && <p className="text-xs text-slate-500 ml-4 mt-1">"{t.note}"</p>}
-                        </div>
-                      ))
-                    ) : <p className="text-xs text-slate-400">Nessun vino registrato</p>}
+                    {lead.tastings?.map((t: any, idx: number) => (
+                      <div key={idx} className="border-b border-slate-200/50 pb-2 last:border-0 last:pb-0">
+                        <p className="text-sm font-bold text-slate-800 italic">🍷 {t.wines?.wine_name}</p>
+                        {t.note && <p className="text-xs text-slate-500 ml-4 mt-1 border-l-2 border-slate-200 pl-2">"{t.note}"</p>}
+                      </div>
+                    ))}
                   </div>
-
-                  {lead.general_notes && (
-                    <div className="mt-4 p-4 bg-amber-50 rounded-2xl text-xs text-slate-600 italic border border-amber-100">
-                      <strong>Memo:</strong> {lead.general_notes}
-                    </div>
-                  )}
                 </div>
               ))
             )}
@@ -189,33 +163,38 @@ export default function AdminDashboard() {
 
         {activeTab === 'config' && (
           <div className="space-y-6">
-            <div className="bg-slate-100 p-8 rounded-[3rem] border-2 border-white flex flex-col items-center gap-6 text-center shadow-inner">
-              <div className="bg-white p-5 rounded-[2.5rem] shadow-xl">
+            <div className="bg-white p-8 rounded-[3rem] border-2 border-slate-100 flex flex-col items-center gap-6 text-center shadow-sm">
+              <div className="bg-white p-4 rounded-[2rem] shadow-xl border border-slate-50">
                 <QRCodeSVG value={publicLink} size={160} level="H" includeMargin={true} />
               </div>
-              <div className="w-full">
-                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Copia Link Stand</p>
-                <div className="flex gap-2 items-center bg-white p-3 rounded-2xl border border-slate-200">
+              <div className="w-full space-y-3">
+                <div className="flex gap-2 items-center bg-slate-50 p-3 rounded-2xl border border-slate-200">
                   <input readOnly value={publicLink} className="bg-transparent text-[11px] flex-grow outline-none px-2 font-mono" />
                   <button onClick={() => { navigator.clipboard.writeText(publicLink); setCopied(true); setTimeout(()=>setCopied(false),2000); }} className="bg-slate-800 text-white p-3 rounded-xl">
                     {copied ? <Check size={16}/> : <Copy size={16}/>}
                   </button>
                 </div>
+                {/* NUOVO TASTO ANTEPRIMA */}
+                <a href={publicLink} target="_blank" className="w-full bg-slate-100 text-slate-600 font-bold py-3 rounded-2xl text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 border border-slate-200">
+                    <ExternalLink size={14}/> Apri Form per lo Stand
+                </a>
               </div>
             </div>
 
             <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-200 space-y-4">
-              <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b pb-2">Configurazione Stand</h3>
-              <input placeholder="Nome Cantina" className="w-full p-4 bg-slate-50 rounded-2xl outline-none border border-slate-100" value={wineryName} onChange={e => setWineryName(e.target.value)} />
-              <input placeholder="Fiera Attiva" className="w-full p-4 bg-slate-50 rounded-2xl outline-none border border-slate-100" value={fairName} onChange={e => setFairName(e.target.value)} />
-              <button onClick={saveSettings} className="w-full bg-red-600 text-white font-black py-5 rounded-[2rem] shadow-xl shadow-red-200 uppercase tracking-widest">Aggiorna Info Stand</button>
+              <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b pb-2">Stand e Fiera</h3>
+              <div className="space-y-4">
+                <input placeholder="Nome Cantina" className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none" value={wineryName} onChange={e => setWineryName(e.target.value)} />
+                <input placeholder="Fiera" className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none" value={fairName} onChange={e => setFairName(e.target.value)} />
+                <button onClick={saveSettings} className="w-full bg-red-600 text-white font-black py-5 rounded-[2rem] shadow-xl shadow-red-200 uppercase tracking-widest">Salva Modifiche</button>
+              </div>
             </div>
 
             <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-200">
-              <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b pb-2 mb-4">Vini in fiera</h3>
+              <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b pb-2 mb-4">Vini nel modulo</h3>
               <div className="flex gap-2 mb-4">
-                <input placeholder="Aggiungi vino..." className="flex-grow p-4 bg-slate-50 rounded-2xl outline-none border border-slate-100" value={newWine} onChange={e => setNewWine(e.target.value)} onKeyDown={e => e.key === 'Enter' && addWine()} />
-                <button onClick={addWine} className="bg-slate-800 text-white p-4 rounded-2xl"><Plus/></button>
+                <input placeholder="Aggiungi vino..." className="flex-grow p-4 bg-slate-50 rounded-2xl outline-none" value={newWine} onChange={e => setNewWine(e.target.value)} onKeyDown={e => e.key === 'Enter' && addWine()} />
+                <button onClick={addWine} className="bg-slate-800 text-white p-4 rounded-2xl shadow-lg"><Plus/></button>
               </div>
               <div className="space-y-2">
                 {wines.map(w => (
@@ -231,7 +210,7 @@ export default function AdminDashboard() {
 
         {activeTab === 'archive' && (
           <div className="space-y-4 animate-in fade-in">
-            <h2 className="text-xl font-black italic px-2 opacity-30 uppercase">Archivio Lead</h2>
+            <h2 className="text-xl font-black italic px-2 opacity-30 uppercase tracking-tighter">Storico Lead</h2>
             {leads.filter(l => l.is_archived).map(lead => (
               <div key={lead.id} className="bg-white p-5 rounded-[2rem] opacity-70 flex justify-between items-center border border-slate-200">
                 <div>
