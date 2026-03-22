@@ -1,13 +1,13 @@
 "use client";
 import { useEffect, useState, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
+import Link from 'next/link'; // Usiamo Link che è più affidabile
 import { supabase } from '@/lib/supabaseClient';
 import Footer from '@/components/Footer';
 import { Wine, CheckCircle2, ChevronRight, Lock } from 'lucide-react';
 
 function FormContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const wineryId = searchParams.get('id');
   
   const [loading, setLoading] = useState(true);
@@ -70,22 +70,25 @@ function FormContent() {
     setSubmitted(true);
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center font-bold text-slate-400 italic">Inizializzazione... 🍷</div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center font-bold text-slate-400 italic">Caricamento... 🍷</div>;
 
-  // PAGINA DI ERRORE CON TASTO DI USCITA (LOGIN)
+  // SCHERMATA DI ERRORE CON TASTO DI SBLOCCO
   if (!wineryId) return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-10 text-center bg-white">
-      <Wine size={64} className="text-red-100 mb-4 animate-pulse" />
-      <h1 className="text-xl font-bold text-slate-800 tracking-tighter">Link non valido</h1>
-      <p className="text-slate-500 mt-2 text-sm italic max-w-xs">Scannerizza il QR Code della cantina per accedere al form di degustazione.</p>
-      
-      {/* QUESTA È LA TUA VIA D'USCITA */}
-      <button 
-        onClick={() => router.push('/login')}
-        className="mt-12 flex items-center gap-2 text-slate-300 hover:text-red-600 transition-colors text-[10px] font-bold uppercase tracking-widest border border-slate-100 px-6 py-3 rounded-full"
-      >
-        <Lock size={12} /> Area Riservata Cantine
-      </button>
+    <div className="min-h-screen flex flex-col items-center justify-center p-10 text-center bg-slate-50">
+      <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100 flex flex-col items-center max-w-sm">
+        <Wine size={64} className="text-red-600 mb-6" />
+        <h1 className="text-2xl font-black text-slate-800 tracking-tighter uppercase">Wine Link</h1>
+        <p className="text-slate-400 mt-4 text-sm font-medium">Link non valido. Scannerizza il QR Code della cantina per registrare la tua degustazione.</p>
+        
+        {/* TASTO DI SBLOCCO - ORA È UN LINK VERO */}
+        <Link 
+          href="/login" 
+          className="mt-10 w-full bg-slate-900 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 hover:bg-red-600 transition-all shadow-lg"
+        >
+          <Lock size={16} /> ACCEDI COME CANTINA
+        </Link>
+      </div>
+      <p className="mt-8 text-[10px] text-slate-300 font-bold uppercase tracking-widest">Wine Link v1.0 - Area Riservata</p>
     </div>
   );
 
@@ -93,7 +96,8 @@ function FormContent() {
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
       <CheckCircle2 size={80} className="text-green-500 mb-4" />
       <h1 className="text-2xl font-bold text-slate-800">Grazie {nome}!</h1>
-      <p className="text-slate-600 mt-2">La tua visita presso <strong>{wineryData?.name}</strong> è stata registrata.</p>
+      <p className="text-slate-600 mt-2">La tua visita è stata registrata correttamente.</p>
+      <button onClick={() => window.location.reload()} className="mt-8 text-red-600 font-bold underline text-sm uppercase">Nuovo inserimento</button>
     </div>
   );
 
@@ -107,16 +111,16 @@ function FormContent() {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border space-y-4">
-            <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Chi sei?</h2>
+            <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">I tuoi contatti</h2>
             <div className="grid grid-cols-2 gap-3">
-              <input required type="text" placeholder="Nome" className="p-4 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 focus:ring-red-500 w-full text-slate-800" onChange={e => setNome(e.target.value)} />
-              <input required type="text" placeholder="Cognome" className="p-4 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 focus:ring-red-500 w-full text-slate-800" onChange={e => setCognome(e.target.value)} />
+              <input required type="text" placeholder="Nome" className="p-4 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 focus:ring-red-500 w-full" onChange={e => setNome(e.target.value)} />
+              <input required type="text" placeholder="Cognome" className="p-4 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 focus:ring-red-500 w-full" onChange={e => setCognome(e.target.value)} />
             </div>
-            <div className="flex bg-slate-50 rounded-2xl overflow-hidden focus-within:ring-2 focus-within:ring-red-500 transition-all">
+            <div className="flex bg-slate-50 rounded-2xl overflow-hidden focus-within:ring-2 focus-within:ring-red-500">
                 <span className="p-4 bg-slate-200 text-slate-500 font-black text-xs flex items-center">+39</span>
-                <input required type="tel" placeholder="Cellulare" className="p-4 bg-transparent outline-none w-full text-slate-800" onChange={e => setTelefono(e.target.value)} />
+                <input required type="tel" placeholder="Cellulare" className="p-4 bg-transparent outline-none w-full" onChange={e => setTelefono(e.target.value)} />
             </div>
-            <select required className="p-4 bg-slate-50 border-none rounded-2xl w-full outline-none text-sm appearance-none text-slate-800" onChange={e => setRuolo(e.target.value)}>
+            <select required className="p-4 bg-slate-50 border-none rounded-2xl w-full outline-none text-sm appearance-none" onChange={e => setRuolo(e.target.value)}>
               <option value="">Ruolo...</option>
               <option value="Sommelier">Sommelier</option>
               <option value="Ristoratore">Ristorante / Bistrot</option>
@@ -137,7 +141,7 @@ function FormContent() {
                   <span className={`font-bold italic transition-all ${viniScelti.find(x => x.id === v.id) ? 'text-red-600' : 'text-slate-700'}`}>{v.wine_name}</span>
                 </label>
                 {viniScelti.find(x => x.id === v.id) && (
-                  <input type="text" placeholder="La tua nota..." className="mt-3 text-sm p-4 w-full bg-red-50 border border-red-100 rounded-2xl outline-none text-slate-800" onChange={(e) => handleNotaVino(v.id, e.target.value)} />
+                  <input type="text" placeholder="La tua nota..." className="mt-3 text-sm p-4 w-full bg-red-50 border border-red-100 rounded-2xl outline-none" onChange={(e) => handleNotaVino(v.id, e.target.value)} />
                 )}
               </div>
             ))}
@@ -154,5 +158,5 @@ function FormContent() {
 }
 
 export default function LeadForm() {
-  return <Suspense fallback={<div className="p-20 text-center font-bold">Inizializzazione...</div>}><FormContent /></Suspense>;
+  return <Suspense fallback={<div className="p-20 text-center">Inizializzazione...</div>}><FormContent /></Suspense>;
 }
